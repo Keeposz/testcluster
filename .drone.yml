@@ -1,0 +1,105 @@
+---
+kind: pipeline # zegt dat het een pipeline is
+type: docker # pipeline steps draaien in docker containers
+name: lint # naam van de pipeline
+
+trigger: 
+  event:
+    - push # pipeline runt alleen bij een push
+    - pull_request # of een merge request
+
+steps: # start van de pipeline stappen
+  - name: yaml-lint # naam van de stap
+    image: cytopia/yamllint # docker image om yaml linting te doen (comm image)
+    commands: # shell commands die in de container worden uitgevoerd
+      - yamllint . # pakt auto dit bestand op uit root repo
+
+  - name: ansible-lint 
+    image: cytopia/ansible-lint # pakt dit voor configuratie
+    commands:
+      - ansible-lint site.yml # draait ansible-lint op het site.yml bestand
+
+---
+kind: pipeline
+type: docker
+name: build-test-push
+
+trigger: # zelfde trigger als hierboven
+  event:
+    - push
+    - pull_request
+
+depends_on: # deze pipeline draait alleen als de lint pipeline succesvol is
+  - lint
+
+steps:
+  - name: wait-for-docker
+    image: docker # gebruikt officiële docker cli image om te wachten tot docker service klaar is
+    environment:
+      DOCKER_HOST: tcp://docker:2376 # vertelt docker cli om te verbinden met de dind service, op deze poort, zonder dit probeert docker te verbinden met een andere service
+      DOCKER_TLS_VERIFY: 1 # forceert tls verificatie, omdat dind standaard TLS gebruikt
+      DOCKER_CERT_PATH: /certs/client # locatie van TLS certificaten in de container, nodig voor beveiligde verbinding met dind
+    volumes: # mount gedeelde certs volume in deze container op /certs, de dind service schrijft hier de tls certs naartoe, deze step leest ze
+      - name: certs
+        path: /certs
+    commands: # soort van healthcheck, wacht tot docker service klaar is voordat we verder gaan
+      - until docker info; do sleep 2; done
+
+  - name: build # zelfde docker connectie config als wait-for-docker, deze stap bouwt de docker image
+    image: docker
+    environment:
+      DOCKER_HOST: tcp://docker:2376
+      DOCKER_TLS_VERIFY: 1
+      DOCKER_CERT_PATH: /certs/client
+    volumes:
+      - name: certs
+        path: /certs
+    commands: # bouwt docker image vanuit de ./app dir waar de dockerfile staat, tagt het met de eerste 8 tekens van de commit sha voor unieke identificatie
+      - docker build -t testcluster-app:${DRONE_COMMIT_SHA:0:8} ./app
+
+  - name: test # runt de zojuist gebouwde image als container
+    image: docker
+    environment:
+      DOCKER_HOST: tcp://docker:2376
+      DOCKER_TLS_VERIFY: 1
+      DOCKER_CERT_PATH: /certs/client
+    volumes:
+      - name: certs
+        path: /certs
+    commands: # hier zou je normaal gesproken een test commando draaien, maar voor demo doeleinden runnen we gewoon de container, als deze succesvol start zonder errors, zien we dat als een geslaagde test
+      - docker run --rm testcluster-app:${DRONE_COMMIT_SHA:0:8}
+
+  - name: push # deze stap pusht de image naar een registry, alleen als we op de main branch zitten, gebruikt dezelfde docker connectie config als de vorige stappen
+    image: docker
+    environment:
+      DOCKER_HOST: tcp://docker:2376
+      DOCKER_TLS_VERIFY: 1
+      DOCKER_CERT_PATH: /certs/client
+      REGISTRY_USERNAME: # om in te loggen bij de registry, deze waarden worden veilig opgeslagen als secrets in drone en hier opgehaald
+        from_secret: REGISTRY_USERNAME # from_secret zorgt ervoor dat waarden nooit in logs verschijnen
+      REGISTRY_PASSWORD: 
+        from_secret: REGISTRY_PASSWORD
+    volumes:
+      - name: certs
+        path: /certs
+    commands:
+      - docker login -u $REGISTRY_USERNAME -p $REGISTRY_PASSWORD registry.example.com # logt in bij de registry met de opgegeven credentials, dit is nodig voordat we kunnen pushen
+      - docker tag testcluster-app:${DRONE_COMMIT_SHA:0:8} registry.example.com/<YOUR_REGISTRY>/testcluster:${DRONE_COMMIT_SHA:0:8} # tagt de image opnieuw met de registry naam en dezelfde commit sha tag, dit is de tag die we gaan pushen
+      - docker tag testcluster-app:${DRONE_COMMIT_SHA:0:8} registry.example.com/<YOUR_REGISTRY>/testcluster:latest # tagt dezelfde image ook als latest, zodat we altijd een "latest" tag hebben die naar de meest recente build verwijst
+      - docker push registry.example.com/<YOUR_REGISTRY>/testcluster:${DRONE_COMMIT_SHA:0:8} # pusht de image naar gitlab conatiner registry met de sha tag
+      - docker push registry.example.com/<YOUR_REGISTRY>/testcluster:latest # pusht de image naar gitlab conatiner registry met de latest tag
+    when: # de push step runt alleen op de main branch, dit voorkomt dat we images pushen van feature branches of pull requests, we willen alleen images van de main branch in onze registry hebben
+      branch:
+        - main
+
+services: # deze service draait naast de pipeline stappen, dit is een docker in docker service die we nodig hebben om docker commands te kunnen draaien in onze stappen, verbinden via DOCKER_HOST en TLS configuratie
+  - name: docker
+    image: docker:dind
+    privileged: true # dind heeft privileged mode nodig om correct te kunnen draaien, root-level toegang (trusted moet hiervoor aanstaan in drone)
+    volumes: # mount certs volume, dind schrijft hier rls certs naartoe om veilig te verbinden
+      - name: certs
+        path: /certs
+
+volumes: # dit is voor een tijdelijke volume genaamd certs, deze wordt gedeeld tussen de dind service en de stappen die docker commands draaien, zodat ze de TLS certificaten kunnen delen die nodig zijn voor een beveiligde verbinding
+  - name: certs
+    temp: {}

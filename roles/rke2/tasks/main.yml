@@ -1,0 +1,54 @@
+---
+- name: Check if rke2-server service exists
+  stat:
+    path: /usr/local/lib/systemd/system/rke2-server.service
+  register: rke2_service
+
+- name: run the installer rke2
+  shell: |
+    curl -sfL https://get.rke2.io | sh -
+  when: not rke2_service.stat.exists
+
+- name: enable and start the service rke2
+  systemd:
+    name: rke2-server
+    enabled: yes
+    state: started
+
+- name: Fix admin shell to bash
+  user:
+    name: admin
+    shell: /bin/bash
+
+- name: Create kubectl symlink
+  file:
+    src: /var/lib/rancher/rke2/bin/kubectl
+    dest: /usr/local/bin/kubectl
+    state: link
+
+- name: Create .kube directory
+  file:
+    path: /home/admin/.kube
+    state: directory
+    owner: admin
+    group: admin
+    mode: '0755'
+
+- name: Copy kubeconfig for admin user
+  copy:
+    src: /etc/rancher/rke2/rke2.yaml
+    dest: /home/admin/.kube/config
+    owner: admin
+    group: admin
+    mode: '0600'
+    remote_src: yes
+
+- name: Check if Helm is installed
+  stat:
+    path: /usr/local/bin/helm
+  register: helm_binary
+
+- name: Install Helm
+  shell: |
+    curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  when: not helm_binary.stat.exists

@@ -1,0 +1,184 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prometheus
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/<YOUR_GITHUB_USERNAME>/testcluster.git
+    path: deployments/observability/prometheus
+    targetRevision: HEAD
+    helm:
+      releaseName: prometheus
+      valuesObject:
+        prometheus:
+          alertmanager:
+            enabled: false
+          server:
+            retention: "30d"
+            retentionSize: "20GB"
+            persistentVolume:
+              enabled: true
+              size: 20Gi
+          scrapeConfigs:
+            # ==========================================================
+            prometheus:
+            # ==========================================================
+              enabled: true
+              job_name: ""
+              static_configs:
+                - targets:
+                    - localhost:9090
+            # ==========================================================
+            kubernetes-api-servers:
+            # ==========================================================
+              enabled: true
+              kubernetes_sd_configs:
+                - role: endpoints
+              scheme: https
+              tls_config:
+                ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+              bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+              relabel_configs:
+                - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+                  action: keep
+                  regex: default;kubernetes;https
+                - target_label: cluster
+                  replacement: 'testcluster'
+            # ==========================================================
+            kubernetes-nodes:
+            # ==========================================================
+              enabled: true
+              job_name: ""
+              scheme: https
+              tls_config:
+                ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+                insecure_skip_verify: true
+              bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+              kubernetes_sd_configs:
+                - role: node
+              relabel_configs:
+                - action: labelmap
+                  regex: __meta_kubernetes_node_label_(.+)
+            # ==========================================================
+            kubernetes-nodes-cadvisor:
+            # ==========================================================
+              enabled: true
+              job_name: ""
+              scheme: https
+              metrics_path: /metrics/cadvisor
+              tls_config:
+                ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+                insecure_skip_verify: true
+              bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+              kubernetes_sd_configs:
+                - role: node
+              relabel_configs:
+                - action: labelmap
+                  regex: __meta_kubernetes_node_label_(.+)
+            # ==========================================================
+            kubernetes-service-endpoints:
+            # ==========================================================
+              enabled: true
+              honor_labels: true
+              kubernetes_sd_configs:
+                - role: endpoints
+              relabel_configs:
+                - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+                  action: keep
+                  regex: true
+                - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape_slow]
+                  action: drop
+                  regex: true
+                - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scheme]
+                  action: replace
+                  target_label: __scheme__
+                  regex: (https?)
+                - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+                  action: replace
+                  target_label: __metrics_path__
+                  regex: (.+)
+                - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+                  action: replace
+                  target_label: __address__
+                  regex: (.+?)(?::\d+)?;(\d+)
+                  replacement: $1:$2
+                - action: labelmap
+                  regex: __meta_kubernetes_service_annotation_prometheus_io_param_(.+)
+                  replacement: __param_$1
+                - action: labelmap
+                  regex: __meta_kubernetes_service_label_(.+)
+                - source_labels: [__meta_kubernetes_namespace]
+                  action: replace
+                  target_label: namespace
+                - source_labels: [__meta_kubernetes_service_name]
+                  action: replace
+                  target_label: service
+                - source_labels: [__meta_kubernetes_pod_node_name]
+                  action: replace
+                  target_label: node
+                - target_label: cluster
+                  replacement: 'testcluster'
+            # ==========================================================
+            kubernetes-pods:
+            # ==========================================================
+              enabled: true
+              honor_labels: true
+              kubernetes_sd_configs:
+                - role: pod
+              relabel_configs:
+                - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+                  action: keep
+                  regex: true
+                - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape_slow]
+                  action: drop
+                  regex: true
+                - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scheme]
+                  action: replace
+                  regex: (https?)
+                  target_label: __scheme__
+                - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+                  action: replace
+                  target_label: __metrics_path__
+                  regex: (.+)
+                - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port, __meta_kubernetes_pod_ip]
+                  action: replace
+                  regex: (\d+);(([A-Fa-f0-9]{1,4}::?){1,7}[A-Fa-f0-9]{1,4})
+                  replacement: '[$2]:$1'
+                  target_label: __address__
+                - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port, __meta_kubernetes_pod_ip]
+                  action: replace
+                  regex: (\d+);((([0-9]+?)(\.|\$)){4})
+                  replacement: $2:$1
+                  target_label: __address__
+                - action: labelmap
+                  regex: __meta_kubernetes_pod_annotation_prometheus_io_param_(.+)
+                  replacement: __param_$1
+                - action: labelmap
+                  regex: __meta_kubernetes_pod_label_(.+)
+                - source_labels: [__meta_kubernetes_namespace]
+                  action: replace
+                  target_label: namespace
+                - source_labels: [__meta_kubernetes_pod_name]
+                  action: replace
+                  target_label: pod
+                - source_labels: [__meta_kubernetes_pod_phase]
+                  regex: Pending|Succeeded|Failed|Completed
+                  action: drop
+                - source_labels: [__meta_kubernetes_pod_node_name]
+                  action: replace
+                  target_label: node
+                - target_label: cluster
+                  replacement: 'testcluster'
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: observability
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: false
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

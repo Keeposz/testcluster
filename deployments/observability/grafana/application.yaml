@@ -1,0 +1,51 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: grafana
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/<YOUR_GITHUB_USERNAME>/testcluster.git # mijn git repo
+    path: deployments/observability/grafana # in deze repo staat helm chart voor grafana
+    targetRevision: HEAD
+    helm:
+      releaseName: grafana
+      valuesObject:
+        grafana:
+          admin:
+            existingSecret: grafana-admin-test2 # gebruik een bestaand secret voor het admin wachtwoord
+            userkey: admin-user
+            passwordkey: admin-password
+          grafana.ini:
+            server:
+              root_url: https://grafana.<YOUR_DOMAIN>
+          datasources:
+            datasources.yaml:
+              apiVersion: 1
+              datasources:
+              - name: Prometheus
+                type: prometheus
+                url: http://prometheus-server
+                access: proxy
+                isDefault: true
+          sidecar:
+            dashboards:
+              enabled: true
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: observability
+  syncPolicy:
+    automated:
+      enabled: true
+      prune: false
+      selfHeal: false
+    syncOptions:
+      - CreateNamespace=true # maak de namespace aan als die nog niet bestaat
+      - ServerSideApply=true # gebruik server-side apply voor betere resource management
+  info:
+  - name: releasenotes
+    value: https://github.com/grafana/grafana/releases
+  - name: values.yaml
+    value: https://github.com/grafana/helm-charts/blob/main/charts/grafana/values.yaml

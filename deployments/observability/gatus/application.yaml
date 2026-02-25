@@ -1,0 +1,36 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application # argocd application resource
+metadata:
+  name: gatus
+  namespace: argocd
+spec:
+  project: default # hoort bij default argocd project
+  source:
+    repoURL: https://github.com/<YOUR_GITHUB_USERNAME>/testcluster.git # mijn git repo
+    path: deployments/observability/gatus # in deze repo staat gatus helm chart
+    targetRevision: HEAD # volg de master branch
+    helm:
+      releaseName: gatus 
+      valuesObject: # override helm values
+        gatus: 
+          config:
+            ui: # gatus ui sorteert endpoints op naam (alfabetisch)
+              default-sort-by: name
+            endpoints: # monitor een endpoint genaamd "argocd"
+              - name: ArgoCD
+                group: internal # groupeer deze endpoint onder "internal" in de ui
+                url: http://argocd-server.argocd.svc.cluster.local # welke url moet gatus checken? 
+                interval: 60s # check elke 60 seconden of argocd nog bereikbaar is
+                conditions:
+                  - "[STATUS] == 200" # de healthcheck is PASS als dit OK is
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: observability # deploy gatus in de "observability" namespace
+  syncPolicy: 
+    automated:
+      prune: false # als je iets uit git verwijderd , verwijder het niet auto in k8s
+      selfHeal: false # als iemand iets handmatig wijzigt in k8s, herstel het NIET auto in git
+    syncOptions:
+      - CreateNamespace=true # maak de "observability" namespace aan als die niet bestaat
+      - ServerSideApply=true # modern ownership systeem 

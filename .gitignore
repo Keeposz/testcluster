@@ -1,0 +1,23 @@
+# Secrets
+.env
+*.key
+*.pem
+secrets/
+
+# Kubernetes access
+kubeconfig
+*.kubeconfig
+kube.config
+
+# Vault unseal / init output
+vault-init.json
+vault-unseal-keys.txt
+*.unseal
+
+# Helm chart archives (run: helm dependency update <chart-dir>)
+**/charts/*.tgz
+
+# Temp files
+*.tmp
+*.log
+.DS_Store

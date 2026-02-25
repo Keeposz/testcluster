@@ -1,0 +1,37 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: drone
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/<YOUR_GITHUB_USERNAME>/testcluster.git
+    path: deployments/drone/drone
+    targetRevision: HEAD
+    helm:
+      releaseName: drone
+      valuesObject:
+        drone:
+          extraSecretNamesForEnvFrom:
+            - drone-secret
+          env:
+            DRONE_SERVER_PROTO: https
+            DRONE_SERVER_HOST: drone.<YOUR_DOMAIN>
+            DRONE_GITLAB_SERVER: https://gitlab.com
+            DRONE_USER_CREATE: "username:<YOUR_GIT_USERNAME>,admin:true"
+            DRONE_DEBUG: true
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: drone
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: false
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+  info:
+    - name: values.yaml
+      value: https://github.com/drone/charts/blob/master/charts/drone/values.yaml

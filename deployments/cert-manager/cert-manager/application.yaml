@@ -1,0 +1,45 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application # argocd application resource
+metadata: # app noemt cert-manager & leeft in argocd namespace
+  name: cert-manager 
+  namespace: argocd
+spec: # hoort bij default argo project
+  project: default
+  source:
+    repoURL: https://github.com/<YOUR_GITHUB_USERNAME>/testcluster.git # mijn git repo
+    path: deployments/cert-manager/cert-manager # in deze repo staat helm chart voor cert-manager
+    targetRevision: HEAD # volg master branch
+    helm: # helm configuratie
+      releaseName: cert-manager 
+      valuesObject: # nieuwe k8s resource types die cert-manager nodig heeft
+        cert-manager:
+          crds:
+            enabled: true # install de crds auto met cert-manager
+  destination: # deploy naar deze cluster in de "cert-manager" namespace
+    server: "https://kubernetes.default.svc"
+    namespace: cert-manager
+  syncPolicy: 
+    automated: 
+      prune: false # als je iets uit git verwijderd, verwijder het niet auto in k8s
+      selfHeal: false # als iemand aanpast in k8s, herstel NIET in git
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer # certificaat uitgever die cluster-wide werkt, alle namespaces
+metadata: 
+  name: letsencrypt-prod # naam die je gebruikt in ingress annotations
+spec: 
+  acme: 
+    server: https://acme-v02.api.letsencrypt.org/directory # letsencrypt prod server
+    email: <YOUR_EMAIL> # voor letsencrypt notifications
+    privateKeySecretRef: # priv key voor acme account, wordt opgeslagen in deze secret -> cert-manager maakt deze secret auto aan
+      name: letsencrypt-prod
+    solvers: # hoe bewijzen we domein ownership
+    - dns01: # bewijs domein ownership via DNS record
+       cloudflare: # cert-manager gebruikt cloudflare api om dns records aan te maken
+         apiTokenSecretRef:
+           name: cloudflare-api-token
+           key: api-token
+      selector: # alleen voor deze DNS zone, gebruik deze resolver
+        dnsZones:
+        - <YOUR_DOMAIN> # deze dns-01 solver is alleen voor domeinen die hierop eindigen

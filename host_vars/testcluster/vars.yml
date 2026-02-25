@@ -1,0 +1,9 @@
+---
+base_hostname: testcluster # zet de hostname van de server hierop
+base_install_packages: # installeer deze packages op de server
+  - curl # cmd tool voor http requests te maken
+  - git
+  - apparmor # linux security module
+base_firewall_tcp_ports: # open deze TCP poorten op de firewall
+  - 22      # SSH
+  - 6443    # Kubernetes API

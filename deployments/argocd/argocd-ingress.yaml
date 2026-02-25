@@ -1,0 +1,28 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress # externe toegang via een domeinnaam
+metadata: # deze ingress heet & leeft in argocd namespace
+  name: argocd-ingress
+  namespace: argocd
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod # haal automatisch een ssl cert op bij lets encrypt -> cert-manager ziet deze annotation en maakt een cert resource aan -> het cert wordt opgeslagen in de secret argocd-tls
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP" # communiceert met de backend service via HTTP -> argocd luistert intern op HTTP
+    nginx.ingress.kubernetes.io/ssl-passthrough: "false" # client -> https -> nginx (decrypts) -> http -> argocd pod
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true" # redirect http -> https
+spec:
+  ingressClassName: nginx # gebruik de ngninx ingress controller om deze ingress af te handelen
+  tls: # activeer tls/ssl voor het domein argocd.<YOUR_DOMAIN>
+    - hosts:
+        - argocd.<YOUR_DOMAIN> 
+      secretName: argocd-tls # ssl cert wordt opgeslaan in secret genaamd argocd-tls
+  rules: # routering regels voor als iemand deze pagina bezoekt
+    - host: argocd.<YOUR_DOMAIN>
+      http:
+        paths:
+          - path: / # voor alle paden die beginnen met /
+            pathType: Prefix # match alles dat met / begint
+            backend: # stuur service door naar hier
+              service:
+                name: argocd-server
+                port:
+                  number: 80 # verbind met poort 80 intern van de service

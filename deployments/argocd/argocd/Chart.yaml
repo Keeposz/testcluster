@@ -1,0 +1,10 @@
+---
+apiVersion: v2 # helm chart versie 2
+appVersion: "1.0" # jouw versie van de app die deze chart installeert
+description: ArgoCD for testcluster 
+name: argocd # naam van deze chart voor helm commands
+version: 1.0 # versie van deze chart -> bij wijzigingen verhoog
+dependencies: # deze chart hangt af van een andere chart genaamd "argo-cd" -> officiële argocd helm chart
+  - name: argo-cd 
+    version: "*" # welke versie van argocd chart gebruiken -> "*" = latest
+    repository: https://argoproj.github.io/argo-helm # officiële argocd helm repo, helm downloadt de chart van hier

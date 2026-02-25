@@ -1,0 +1,30 @@
+---
+apiVersion: v1
+kind: ServiceAccount # de gebruiker aanmaken voor pods
+metadata:
+  name: tailscale
+  namespace: tailscale
+---
+apiVersion: rbac.authorization.k8s.io/v1 # rechten definiëren
+kind: Role # we maken een rol aan, de lijst van wat je mag doen
+metadata:
+  name: tailscale
+  namespace: tailscale # geldt alleen binnen de tailscale namespace
+rules:
+- apiGroups: [""] # basis k8s resources zoals pods, secrets, services
+  resources: ["secrets"]
+  verbs: ["create", "get", "update", "list"] # list = alle secrets in namespace zien
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding # verbindt serviceaccount met role
+metadata:
+  name: tailscale
+  namespace: tailscale
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role # welke rol geven we , verwijst naar hierboven
+  name: tailscale
+subjects:
+  - kind: ServiceAccount # aan wie geven we de rol
+    name: tailscale
+    namespace: tailscale

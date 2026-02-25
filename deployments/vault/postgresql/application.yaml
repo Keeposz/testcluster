@@ -1,0 +1,28 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: postgresql
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/<YOUR_GITHUB_USERNAME>/testcluster.git
+    path: deployments/vault/postgresql
+    targetRevision: HEAD
+    helm:
+      releaseName: postgresql
+      valuesObject:
+        postgresql:
+          auth:
+            database: vault
+            username: vault
+            existingSecret: postgresql-credentials     
+
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: vault
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: false

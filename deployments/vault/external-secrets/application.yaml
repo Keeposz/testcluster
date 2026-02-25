@@ -1,0 +1,37 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: external-secrets
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/<YOUR_GITHUB_USERNAME>/testcluster.git
+    path: deployments/vault/external-secrets
+    targetRevision: HEAD
+    helm:
+      releaseName: external-secrets
+      valuesObject:
+        external-secrets:
+          grafanaDashboard:
+            enabled: false
+          webhook:
+            certManager:
+              enabled: false
+
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: vault
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: false
+    syncOptions:
+    - ServerSideApply=true 
+
+  info:
+  - name: releasenotes
+    value: https://github.com/external-secrets/external-secrets/releases
+  - name: values.yaml
+    value: https://github.com/external-secrets/external-secrets/blob/main/deploy/charts/external-secrets/values.yaml

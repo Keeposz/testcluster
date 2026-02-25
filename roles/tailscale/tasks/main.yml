@@ -1,0 +1,16 @@
+---
+- name: check if tailscale is installed
+  stat:
+    path: /usr/bin/tailscale
+  register: tailscale_binary
+
+- name: install tailscale
+  shell: |
+    curl -fsSL https://tailscale.com/install.sh | sh 
+  when: not tailscale_binary.stat.exists
+
+- name: Start tailscale with auth key
+  # Vereist: maak secrets/tailscale-auth-key aan met je Tailscale auth key (gitignored)
+  # Genereer een auth key via: https://login.tailscale.com/admin/settings/keys
+  shell: tailscale up --authkey={{ lookup('file', 'secrets/tailscale-auth-key') | trim }}
+  when: not tailscale_binary.stat.exists

@@ -1,0 +1,35 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: longhorn
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/<YOUR_GITHUB_USERNAME>/testcluster.git # waar staat de config
+    path: deployments/longhorn/longhorn # kijk in deze folder, hier staat helm chart
+    targetRevision: HEAD
+    helm:
+      releaseName: longhorn
+      valuesObject:
+        longhorn:
+          persistence:
+            defaultClassReplicaCount: 1
+          longhornManager:
+            log:
+              format: json
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: longhorn-system
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: false
+    syncOptions:
+      - CreateNamespace=true
+  info:
+  - name: releasenotes
+    value: https://github.com/longhorn/longhorn/releases
+  - name: values.yaml
+    value: https://github.com/longhorn/charts/blob/v1.5.x/charts/longhorn/values.yaml

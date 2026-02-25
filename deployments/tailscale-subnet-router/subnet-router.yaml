@@ -1,0 +1,42 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tailscale-subnet-router
+  namespace: tailscale
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tailscale-subnet-router
+  template:
+    metadata:
+      labels:
+        app: tailscale-subnet-router
+    spec:
+      serviceAccountName: tailscale # verbindt de rbac rol
+      containers:
+      - name: tailscale
+        image: tailscale/tailscale:latest # gebruik deze image , laatste versie
+        env:
+        - name: TS_AUTHKEY
+          valueFrom:
+            secretKeyRef:
+              name: tailscale-auth
+              key: TS_AUTHKEY
+        - name: TS_ROUTES
+          value: "10.42.0.0/16,10.43.0.0/16" # 42 = pod ip range rke2 & 43 = service ip range
+        - name: TS_STATE_DIR
+          value: /var/lib/tailscale
+        securityContext: # speciale rechten
+          capabilities:
+            add:
+            - NET_ADMIN # nodig om netwerk routes aan te passen
+        volumeMounts:
+        - name: tailscale-state
+          mountPath: /var/lib/tailscale
+      volumes: 
+      - name: tailscale-state 
+        hostPath: # gebruik een folde op de node (fysieke server waar pod draait)
+          path: /var/lib/tailscale-state # gebruik deze folder op de node
+          type: DirectoryOrCreate # maak de folder aan als die nog niet bestaat

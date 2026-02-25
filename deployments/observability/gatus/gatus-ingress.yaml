@@ -1,0 +1,26 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress # ingress resource, routeringsregel http/s traffic
+metadata:
+  name: gatus-ingress
+  namespace: observability
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod # cert-manager maakt auto een ssl cert aan
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"  # http -> https
+spec:
+  ingressClassName: nginx # gebruik de nginx ingress controller om deze ingress af te handelen
+  tls: # activeer tls/ssl voor dit domein
+    - hosts:
+        - gatus.<YOUR_DOMAIN>
+      secretName: gatus-tls # naam van het ssl-cert
+  rules: # als iemand deze pagina bezoekt voeg deze regels toe
+    - host: gatus.<YOUR_DOMAIN>
+      http:
+        paths:
+          - path: / # alle paden die beginnen met /
+            pathType: Prefix # match alles dat met / begint (dus alles)
+            backend: # stuur traffic door naar deze service
+              service:
+                name: gatus
+                port: 
+                  number: 80 # verbind intern met poort 80 van de service

@@ -1,0 +1,34 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata: 
+  name: argocd
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/<YOUR_GITHUB_USERNAME>/testcluster.git
+    path: deployments/argocd/argocd
+    targetRevision: HEAD
+    helm:
+      releaseName: argocd
+      valuesObject:
+        argo-cd:
+          server:
+            insecure: true
+          configs:
+            ssh:
+              extraHosts: |
+                # Voeg hier SSH host keys toe als je een private Git server gebruikt via SSH
+                # Voorbeeld: ssh-keyscan <YOUR_GIT_SERVER> >> ~/.ssh/known_hosts
+                # <YOUR_GIT_SERVER> ssh-ed25519 <HOST_KEY>
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: false
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

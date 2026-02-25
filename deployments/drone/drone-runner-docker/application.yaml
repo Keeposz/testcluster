@@ -1,0 +1,31 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: drone-runner-docker
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/<YOUR_GITHUB_USERNAME>/testcluster.git
+    path: deployments/drone/drone-runner-docker
+    targetRevision: HEAD
+    helm:
+      releaseName: drone-runner-docker
+      valuesObject:
+        drone-runner-docker:
+          extraSecretNamesForEnvFrom:
+            - drone-secret
+          env:
+            DRONE_DEBUG: true
+            DRONE_RPC_HOST: drone:8080
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: drone
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: false
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

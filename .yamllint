@@ -1,0 +1,14 @@
+---
+extends: relaxed # soepeler, kan je custom regels aan toevoegen, zie hieronder
+
+rules:
+  line-length: # overschrijft de standaard regel voor maximale lijnlengte, k8s heeft yaml is heeft vaak langere regels
+    max: 250
+    allow-non-breakable-inline-mappings: true # staat toe dat inline mappings (zoals {key: value}) langer kunnen zijn dan de max lijnlengte, dit is handig voor k8s yaml waar dit vaak voorkomt
+  trailing-spaces: # spaties aan het einde van een regel geven een warning in plaats van een error
+    level: warning
+  new-line-at-end-of-file: # een bestand dat niet eindigt met een nieuwe regel geeft een warning in plaats van een error
+    level: warning
+
+ignore: # negeert de grafana dashboard bestanden volledig, deze zijn vaak automatisch gegenereerd en kunnen veel regels bevatten die niet voldoen aan de lint regels, maar we willen ze niet aanpassen omdat ze automatisch worden gegenereerd
+  - deployments/observability/grafana/dashboards/ 

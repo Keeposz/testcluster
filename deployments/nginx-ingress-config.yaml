@@ -1,0 +1,14 @@
+---
+apiVersion: helm.cattle.io/v1 # custom crd
+kind: HelmChartConfig # laat rke2 weten dat je de helm chart config wilt aanpassen
+metadata:
+  name: rke2-ingress-nginx # moet matchen met helm chart die je wilt overriden
+  namespace: kube-system
+spec: # de values die we willen overriden
+  valuesContent: |- # multi line string, alles hierna is 1 grote string
+    controller: 
+      hostPort:
+        enabled: true
+      service:
+        enabled: true
+        type: ClusterIP 

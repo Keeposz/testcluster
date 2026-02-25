@@ -1,0 +1,9 @@
+---
+- name: Setup Test Cluster
+  hosts: testcluster
+  become: true
+  roles:
+    - debian-base
+    - rke2
+    - tailscale
+    - longhorn

@@ -1,0 +1,19 @@
+          admin:
+            existingSecret: grafana-admin-test2 # gebruik een bestaand secret voor het admin wachtwoord
+            userkey: admin-user
+            passwordkey: admin-password
+          grafana.ini:
+            server:
+              root_url: https://grafana.<YOUR_DOMAIN>
+          datasources:
+            datasources.yaml:
+              apiVersion: 1
+              datasources:
+              - name: Prometheus
+                type: prometheus
+                url: http://prometheus-server
+                access: proxy
+                isDefault: true
+          sidecar:
+            dashboards:
+              enabled: true
